@@ -1,0 +1,76 @@
+const { Client, GatewayIntentBits } = require('discord.js');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource } = require('@discordjs/voice');
+const play = require('play-dl');
+
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ]
+});
+
+const prefix = "!";
+
+client.once('ready', () => {
+    console.log(`Bot conectado como ${client.user.tag}`);
+});
+
+client.on('messageCreate', async message => {
+    if (!message.content.startsWith(prefix) || message.author.bot) return;
+
+    const args = message.content.slice(prefix.length).trim().split(/ +/);
+    const command = args.shift().toLowerCase();
+
+    if (command === "join") {
+        if (!message.member.voice.channel) return message.reply("Você precisa estar em um canal de voz!");
+
+        const connection = joinVoiceChannel({
+            channelId: message.member.voice.channel.id,
+            guildId: message.guild.id,
+            adapterCreator: message.guild.voiceAdapterCreator
+        });
+
+        message.reply("Entrei no canal de voz!");
+    }
+
+    if (command === "play") {
+        if (!message.member.voice.channel) return message.reply("Entre em um canal de voz primeiro!");
+        if (args.length === 0) return message.reply("Forneça um link do YouTube ou Spotify!");
+
+        const query = args.join(" ");
+        const connection = joinVoiceChannel({
+            channelId: message.member.voice.channel.id,
+            guildId: message.guild.id,
+            adapterCreator: message.guild.voiceAdapterCreator
+        });
+
+        try {
+            let stream;
+            if (query.includes("youtube.com") || query.includes("youtu.be")) {
+                stream = await play.stream(query);
+            } else if (query.includes("spotify.com")) {
+                const spotifyData = await play.spotify(query);
+                const search = await play.search(spotifyData.name, { limit: 1 });
+                stream = await play.stream(search[0].url);
+            } else {
+                const search = await play.search(query, { limit: 1 });
+                stream = await play.stream(search[0].url);
+            }
+
+            const player = createAudioPlayer();
+            const resource = createAudioResource(stream.stream, { inputType: stream.type });
+
+            player.play(resource);
+            connection.subscribe(player);
+
+            message.reply(`🎶 Tocando agora: ${query}`);
+        } catch (error) {
+            console.error(error);
+            message.reply("❌ Ocorreu um erro ao tentar tocar a música.");
+        }
+    }
+});
+
+client.login('931605d35e6bb4d80b782c0d7399b8c3c02d5c7430a45513da685ae46287f538');

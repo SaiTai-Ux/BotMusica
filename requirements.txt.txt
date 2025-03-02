@@ -1,0 +1,6 @@
+discord.py
+humafriendly
+numpy
+Pillow
+requests
+gtts
